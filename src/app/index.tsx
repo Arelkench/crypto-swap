@@ -1,5 +1,5 @@
-import { ChangeEvent, useState } from 'react';
-import { Button, Grid, TextField } from '@mui/material';
+import { ChangeEvent, useEffect, useState } from 'react';
+import { Box, Button, TextField } from '@mui/material';
 import { useSwap } from '../hooks/useSwap.ts';
 
 export const App = () => {
@@ -19,6 +19,11 @@ export const App = () => {
     currency: string,
   ) => {
     const amount = e.target.value;
+    if (!amount.trim()) {
+      setUsdtAmount('');
+      setWethAmount('');
+      return;
+    }
     if (currency === 'USDT') {
       setUsdtAmount(amount);
       setWethAmount((parseFloat(amount) / usdtPrice).toString());
@@ -27,34 +32,56 @@ export const App = () => {
       setUsdtAmount((parseFloat(amount) * wethPrice).toString());
     }
   };
+  useEffect(() => {
+    if (activePair === 'WETH_USDT' && wethAmount) {
+      setUsdtAmount((parseFloat(wethAmount) * wethPrice).toString());
+      return;
+    }
+
+    if (!usdtAmount) {
+      return;
+    }
+
+    setWethAmount((parseFloat(usdtAmount) / usdtPrice).toString());
+  }, [activePair, usdtAmount, usdtPrice, wethAmount, wethPrice]);
 
   return (
-    <Grid container spacing={2} alignItems="center">
-      <Grid item xs={6}>
+    <Box
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="center"
+      height="100vh"
+    >
+      <Box display="flex" alignItems="center" marginBottom={2}>
         <TextField
+          sx={{ marginRight: '16px' }}
           label="USDT"
           variant="outlined"
-          value={usdtAmount}
+          value={
+            !usdtPrice && activePair === 'WETH_USDT' && wethAmount
+              ? 'loading...'
+              : usdtAmount
+          }
           onChange={(e) => handleInputChange(e, 'USDT')}
-          fullWidth
           disabled={activePair === 'WETH_USDT'}
         />
-      </Grid>
-      <Grid item xs={6}>
         <TextField
           label="WETH"
           variant="outlined"
-          value={wethAmount}
+          value={
+            !wethPrice && activePair === 'USDT_WETH' && usdtAmount
+              ? 'loading...'
+              : wethAmount
+          }
           onChange={(e) => handleInputChange(e, 'WETH')}
-          fullWidth
           disabled={activePair === 'USDT_WETH'}
         />
-      </Grid>
-      <Grid item xs={12}>
-        <Button variant="contained" onClick={handleSwap}>
-          Swap
-        </Button>
-      </Grid>
-    </Grid>
+      </Box>
+
+      <Button variant="contained" onClick={handleSwap}>
+        Swap
+      </Button>
+    </Box>
   );
 };
