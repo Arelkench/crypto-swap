@@ -1,37 +1,55 @@
-import { ChangeEvent, useEffect, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Button, TextField } from '@mui/material';
 import { useSwap } from '../hooks/useSwap.ts';
 
 export const App = () => {
   const { usdtPrice, wethPrice } = useSwap();
+
   const [activePair, setActivePair] = useState('WETH_USDT');
   const [usdtAmount, setUsdtAmount] = useState('');
   const [wethAmount, setWethAmount] = useState('');
 
-  const handleSwap = () => {
-    setActivePair(activePair === 'WETH_USDT' ? 'USDT_WETH' : 'WETH_USDT');
+  const isWethLoading = useMemo(
+    () => !wethPrice && activePair === 'USDT_WETH' && usdtAmount,
+    [activePair, usdtAmount, wethPrice],
+  );
+
+  const isUsdtLoading = useMemo(
+    () => !usdtPrice && activePair === 'WETH_USDT' && wethAmount,
+    [activePair, usdtPrice, wethAmount],
+  );
+  const resetFields = useCallback(() => {
     setUsdtAmount('');
     setWethAmount('');
+  }, []);
+
+  const handleSwap = () => {
+    setActivePair(activePair === 'WETH_USDT' ? 'USDT_WETH' : 'WETH_USDT');
+    resetFields();
   };
 
-  const handleInputChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-    currency: string,
-  ) => {
-    const amount = e.target.value;
-    if (!amount.trim()) {
-      setUsdtAmount('');
-      setWethAmount('');
-      return;
-    }
-    if (currency === 'USDT') {
-      setUsdtAmount(amount);
-      setWethAmount((parseFloat(amount) / usdtPrice).toString());
-    } else {
-      setWethAmount(amount);
-      setUsdtAmount((parseFloat(amount) * wethPrice).toString());
-    }
-  };
+  const handleInputChange = useCallback(
+    (currency: string) =>
+      (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const amount = e.target.value;
+
+        if (!amount.trim()) {
+          resetFields();
+          return;
+        }
+
+        if (currency === 'USDT') {
+          setUsdtAmount(amount);
+          setWethAmount((parseFloat(amount) / usdtPrice).toString());
+          return;
+        }
+
+        setWethAmount(amount);
+        setUsdtAmount((parseFloat(amount) * wethPrice).toString());
+      },
+    [resetFields, usdtPrice, wethPrice],
+  );
+
   useEffect(() => {
     if (activePair === 'WETH_USDT' && wethAmount) {
       setUsdtAmount((parseFloat(wethAmount) * wethPrice).toString());
@@ -53,28 +71,19 @@ export const App = () => {
       justifyContent="center"
       height="100vh"
     >
-      <Box display="flex" alignItems="center" marginBottom={2}>
+      <Box display="flex" alignItems="center" gap="16px" marginBottom={2}>
         <TextField
-          sx={{ marginRight: '16px' }}
           label="USDT"
           variant="outlined"
-          value={
-            !usdtPrice && activePair === 'WETH_USDT' && wethAmount
-              ? 'loading...'
-              : usdtAmount
-          }
-          onChange={(e) => handleInputChange(e, 'USDT')}
+          value={isUsdtLoading ? 'Loading...' : usdtAmount}
+          onChange={handleInputChange('USDT')}
           disabled={activePair === 'WETH_USDT'}
         />
         <TextField
           label="WETH"
           variant="outlined"
-          value={
-            !wethPrice && activePair === 'USDT_WETH' && usdtAmount
-              ? 'loading...'
-              : wethAmount
-          }
-          onChange={(e) => handleInputChange(e, 'WETH')}
+          value={isWethLoading ? 'Loading...' : wethAmount}
+          onChange={handleInputChange('WETH')}
           disabled={activePair === 'USDT_WETH'}
         />
       </Box>
